@@ -1,6 +1,5 @@
 
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
   Home, 
@@ -27,33 +26,36 @@ const menuItems = [
   { 
     title: "Dashboard", 
     icon: Home, 
-    to: "/dashboard" 
+    value: "dashboard" 
   },
   { 
     title: "Donadores", 
     icon: Users, 
-    to: "/donadores" 
+    value: "donadores" 
   },
   { 
     title: "Donaciones", 
     icon: Gift, 
-    to: "/donaciones" 
+    value: "donaciones" 
   },
   { 
     title: "Inventario", 
     icon: Package, 
-    to: "/inventario" 
+    value: "inventario" 
   },
   { 
     title: "Empleados", 
     icon: UserCog, 
-    to: "/empleados" 
+    value: "empleados" 
   }
 ];
 
-export function AppSidebar() {
-  const location = useLocation();
-  
+interface AppSidebarProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+}
+
+export function AppSidebar({ activeTab, setActiveTab }: AppSidebarProps) {
   return (
     <Sidebar>
       <SidebarHeader className="flex p-4">
@@ -78,13 +80,14 @@ export function AppSidebar() {
                 asChild
                 className={cn(
                   "w-full justify-start gap-2",
-                  location.pathname === item.to && "bg-secondary text-secondary-foreground"
+                  activeTab === item.value && "bg-secondary text-secondary-foreground"
                 )}
+                onClick={() => setActiveTab(item.value)}
               >
-                <Link to={item.to}>
+                <div className="flex items-center px-2 py-1.5 cursor-pointer">
                   <item.icon size={18} />
                   <span>{item.title}</span>
-                </Link>
+                </div>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

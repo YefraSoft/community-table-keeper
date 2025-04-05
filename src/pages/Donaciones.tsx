@@ -1,41 +1,33 @@
+
 import React, { useState, useEffect } from 'react';
-import { Donacion } from '@/types';
 import { useAppContext } from '@/context/AppContext';
+import { Donacion, Donador } from '@/types';
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format } from "date-fns"
-import { es } from 'date-fns/locale';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Search, Edit, Trash } from "lucide-react";
 
-const Donaciones: React.FC = () => {
-  const { donaciones, agregarDonacion, actualizarDonacion, eliminarDonacion } = useAppContext();
+const Donaciones = () => {
+  const { donaciones, donadores, agregarDonacion, actualizarDonacion, eliminarDonacion } = useAppContext();
+  const [busqueda, setBusqueda] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [nuevaDonacion, setNuevaDonacion] = useState<Omit<Donacion, 'id'>>({
+  const [editingDonacion, setEditingDonacion] = useState<Donacion | null>(null);
+  
+  const [formData, setFormData] = useState<Omit<Donacion, 'id'>>({
     donadorId: '',
+    nombreDonador: '',
     fecha: new Date().toISOString().split('T')[0],
     tipo: 'economica',
     cantidad: 0,
@@ -44,76 +36,11 @@ const Donaciones: React.FC = () => {
     estado: 'pendiente',
     descripcion: ''
   });
-  const [editingDonacion, setEditingDonacion] = useState<Donacion | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [date, setDate] = useState<Date | undefined>(new Date());
 
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
-  const openEditModal = (donacion: Donacion) => {
-    setEditingDonacion(donacion);
-    setIsEditModalOpen(true);
-  };
-  const closeEditModal = () => {
-    setIsEditModalOpen(false);
-    setEditingDonacion(null);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setNuevaDonacion(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    if (editingDonacion) {
-      const { name, value } = e.target;
-      setEditingDonacion(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleDateChange = (date: Date | undefined) => {
-    setDate(date);
-    if (date) {
-      setNuevaDonacion(prev => ({ ...prev, fecha: date.toISOString().split('T')[0] }));
-    }
-  };
-
-  const handleEditDateChange = (date: Date | undefined) => {
-    setDate(date);
-    if (editingDonacion && date) {
-      setEditingDonacion(prev => ({ ...prev, fecha: date.toISOString().split('T')[0] }));
-    }
-  };
-
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingDonacion) {
-      actualizarDonacion({
-        ...editingDonacion,
-        cantidad: Number(editingDonacion.cantidad),
-        tipo: editingDonacion.tipo as 'economica' | 'especie', // Ensure correct type
-        metodo: editingDonacion.metodo as 'efectivo' | 'transferencia' | 'cheque' | 'otro',
-        estado: editingDonacion.estado as 'pendiente' | 'completada' | 'cancelada'
-      });
-      closeModal();
-    }
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    agregarDonacion({
-      donadorId: nuevaDonacion.donadorId,
-      fecha: nuevaDonacion.fecha,
-      tipo: nuevaDonacion.tipo as 'economica' | 'especie', // Ensure correct type
-      cantidad: Number(nuevaDonacion.cantidad),
-      categoriaProducto: nuevaDonacion.categoriaProducto,
-      metodo: nuevaDonacion.metodo as 'efectivo' | 'transferencia' | 'cheque' | 'otro',
-      estado: nuevaDonacion.estado as 'pendiente' | 'completada' | 'cancelada',
-      descripcion: nuevaDonacion.descripcion
-    });
-    
-    setNuevaDonacion({
+  const resetForm = () => {
+    setFormData({
       donadorId: '',
+      nombreDonador: '',
       fecha: new Date().toISOString().split('T')[0],
       tipo: 'economica',
       cantidad: 0,
@@ -122,244 +49,318 @@ const Donaciones: React.FC = () => {
       estado: 'pendiente',
       descripcion: ''
     });
-    closeModal();
+    setEditingDonacion(null);
+  };
+
+  const donacionesFiltradas = donaciones.filter(donacion => 
+    donacion.nombreDonador?.toLowerCase().includes(busqueda.toLowerCase()) ||
+    donacion.descripcion?.toLowerCase().includes(busqueda.toLowerCase())
+  );
+
+  const handleTipoChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tipo: value as "economica" | "especie"
+    }));
+  };
+
+  const handleMetodoChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      metodo: value as "efectivo" | "transferencia" | "cheque" | "otro"
+    }));
+  };
+
+  const handleEstadoChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      estado: value as "pendiente" | "completada" | "cancelada"
+    }));
+  };
+
+  const handleDonadorChange = (value: string) => {
+    const donador = donadores.find(d => d.id === value);
+    setFormData(prev => ({
+      ...prev,
+      donadorId: value,
+      nombreDonador: donador?.nombreCompleto || ''
+    }));
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  };
+
+  const handleSubmit = () => {
+    if (editingDonacion) {
+      actualizarDonacion({
+        ...editingDonacion,
+        ...formData
+      });
+    } else {
+      agregarDonacion(formData);
+    }
+    setIsModalOpen(false);
+    resetForm();
+  };
+
+  const handleEdit = (donacion: Donacion) => {
+    setEditingDonacion(donacion);
+    setFormData({
+      donadorId: donacion.donadorId,
+      nombreDonador: donacion.nombreDonador,
+      fecha: donacion.fecha,
+      tipo: donacion.tipo,
+      cantidad: donacion.cantidad,
+      categoriaProducto: donacion.categoriaProducto,
+      metodo: donacion.metodo,
+      estado: donacion.estado,
+      descripcion: donacion.descripcion
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleEditTipoChange = (value: string) => {
+    setEditingDonacion(prev => prev ? {
+      ...prev,
+      tipo: value as "economica" | "especie"
+    } : null);
+  };
+
+  const handleEditMetodoChange = (value: string) => {
+    setEditingDonacion(prev => prev ? {
+      ...prev,
+      metodo: value as "efectivo" | "transferencia" | "cheque" | "otro"
+    } : null);
+  };
+
+  const handleEditEstadoChange = (value: string) => {
+    setEditingDonacion(prev => prev ? {
+      ...prev,
+      estado: value as "pendiente" | "completada" | "cancelada"
+    } : null);
   };
 
   const handleDelete = (id: string) => {
-    eliminarDonacion(id);
+    if (window.confirm("¿Estás seguro que deseas eliminar esta donación?")) {
+      eliminarDonacion(id);
+    }
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Donaciones</h1>
-        <Button onClick={openModal}><Plus className="mr-2 h-4 w-4" /> Agregar Donación</Button>
-      </div>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Donaciones</h1>
+          <p className="text-muted-foreground">
+            Registro de donaciones recibidas
+          </p>
+        </div>
 
-      <Table>
-        <TableCaption>Lista de todas las donaciones realizadas.</TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Fecha</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Cantidad</TableHead>
-            <TableHead>Método</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {donaciones.map((donacion) => (
-            <TableRow key={donacion.id}>
-              <TableCell>{donacion.fecha}</TableCell>
-              <TableCell>{donacion.tipo}</TableCell>
-              <TableCell>{donacion.cantidad}</TableCell>
-              <TableCell>{donacion.metodo}</TableCell>
-              <TableCell>{donacion.estado}</TableCell>
-              <TableCell className="text-right">
-                <Button variant="ghost" size="sm" onClick={() => openEditModal(donacion)}>
-                  <Pencil className="mr-2 h-4 w-4" /> Editar
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(donacion.id)}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-        <TableFooter>
-          <TableRow>
-            <TableCell colSpan={5}>Total donaciones: {donaciones.length}</TableCell>
-          </TableRow>
-        </TableFooter>
-      </Table>
+        <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nueva Donación
+        </Button>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <Search className="h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar donación..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          className="max-w-xs"
+        />
+      </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Donaciones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Donador</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Cantidad</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {donacionesFiltradas.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-16 text-center">
+                      No se encontraron resultados.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  donacionesFiltradas.map((donacion) => (
+                    <TableRow key={donacion.id}>
+                      <TableCell>{donacion.nombreDonador}</TableCell>
+                      <TableCell>{donacion.fecha}</TableCell>
+                      <TableCell>
+                        <Badge variant={donacion.tipo === 'economica' ? 'default' : 'secondary'}>
+                          {donacion.tipo === 'economica' ? 'Económica' : 'En Especie'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {donacion.tipo === 'economica' 
+                          ? `$${donacion.cantidad.toFixed(2)}` 
+                          : `${donacion.cantidad} ${donacion.categoriaProducto}`}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            donacion.estado === 'completada' ? 'default' : 
+                            donacion.estado === 'pendiente' ? 'outline' : 
+                            'destructive'
+                          }
+                        >
+                          {donacion.estado}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(donacion)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(donacion.id)}>
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
-            <DialogTitle>Agregar Donación</DialogTitle>
-            <DialogDescription>
-              Ingrese la información de la donación.
-            </DialogDescription>
+            <DialogTitle>
+              {editingDonacion ? "Editar Donación" : "Registrar Nueva Donación"}
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleFormSubmit} className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="donadorId">Donador ID</Label>
-              <Input type="text" id="donadorId" name="donadorId" value={nuevaDonacion.donadorId} onChange={handleInputChange} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Fecha de Donación</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={
-                      "w-[280px] justify-start text-left font-normal" +
-                      (date ? " text-foreground" : " text-muted-foreground")
-                    }
-                  >
-                    {date ? format(date, "PPP", { locale: es }) : (
-                      <span>Pick a date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="center" side="bottom">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={handleDateChange}
-                    disabled={(date) =>
-                      date > new Date()
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="tipo">Tipo de Donación</Label>
-              <Select name="tipo" value={nuevaDonacion.tipo} onValueChange={(value) => setNuevaDonacion(prev => ({ ...prev, tipo: value }))}>
-                <SelectTrigger className="w-[280px]">
-                  <SelectValue placeholder="Seleccione el tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="economica">Económica</SelectItem>
-                  <SelectItem value="especie">Especie</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="cantidad">Cantidad</Label>
-              <Input type="number" id="cantidad" name="cantidad" value={nuevaDonacion.cantidad} onChange={handleInputChange} />
-            </div>
-            {nuevaDonacion.tipo === 'especie' && (
-              <div className="grid gap-2">
-                <Label htmlFor="categoriaProducto">Categoría del Producto</Label>
-                <Input type="text" id="categoriaProducto" name="categoriaProducto" value={nuevaDonacion.categoriaProducto} onChange={handleInputChange} />
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="donador" className="text-right">Donador</Label>
+              <div className="col-span-3">
+                <Select 
+                  value={formData.donadorId} 
+                  onValueChange={handleDonadorChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar donador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {donadores.map((donador) => (
+                      <SelectItem key={donador.id} value={donador.id}>
+                        {donador.nombreCompleto}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-            <div className="grid gap-2">
-              <Label htmlFor="metodo">Método de Pago</Label>
-              <Select name="metodo" value={nuevaDonacion.metodo} onValueChange={(value) => setNuevaDonacion(prev => ({ ...prev, metodo: value }))}>
-                <SelectTrigger className="w-[280px]">
-                  <SelectValue placeholder="Seleccione el método" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="efectivo">Efectivo</SelectItem>
-                  <SelectItem value="transferencia">Transferencia</SelectItem>
-                  <SelectItem value="cheque">Cheque</SelectItem>
-                  <SelectItem value="otro">Otro</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="estado">Estado</Label>
-              <Select name="estado" value={nuevaDonacion.estado} onValueChange={(value) => setNuevaDonacion(prev => ({ ...prev, estado: value }))}>
-                <SelectTrigger className="w-[280px]">
-                  <SelectValue placeholder="Seleccione el estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pendiente">Pendiente</SelectItem>
-                  <SelectItem value="completada">Completada</SelectItem>
-                  <SelectItem value="cancelada">Cancelada</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="descripcion">Descripción</Label>
-              <Input type="textarea" id="descripcion" name="descripcion" value={nuevaDonacion.descripcion} onChange={handleInputChange} />
-            </div>
-            <DialogFooter>
-              <Button type="submit">Agregar</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Editar Donación</DialogTitle>
-            <DialogDescription>
-              Edite la información de la donación.
-            </DialogDescription>
-          </DialogHeader>
-          {editingDonacion && (
-            <form onSubmit={handleEditSubmit} className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="donadorId">Donador ID</Label>
-                <Input type="text" id="donadorId" name="donadorId" value={editingDonacion.donadorId} onChange={handleEditInputChange} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Fecha de Donación</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={
-                        "w-[280px] justify-start text-left font-normal" +
-                        (date ? " text-foreground" : " text-muted-foreground")
-                      }
-                    >
-                      {date ? format(date, "PPP", { locale: es }) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="center" side="bottom">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={handleEditDateChange}
-                      disabled={(date) =>
-                        date > new Date()
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="tipo">Tipo de Donación</Label>
-                <Select name="tipo" value={editingDonacion.tipo} onValueChange={(value) => setEditingDonacion(prev => ({ ...prev, tipo: value }))}>
-                  <SelectTrigger className="w-[280px]">
-                    <SelectValue placeholder="Seleccione el tipo" />
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="fecha" className="text-right">Fecha</Label>
+              <Input
+                id="fecha"
+                type="date"
+                name="fecha"
+                value={formData.fecha}
+                onChange={handleInputChange}
+                className="col-span-3"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="tipo" className="text-right">Tipo</Label>
+              <div className="col-span-3">
+                <Select 
+                  value={formData.tipo} 
+                  onValueChange={handleTipoChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tipo de donación" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="economica">Económica</SelectItem>
-                    <SelectItem value="especie">Especie</SelectItem>
+                    <SelectItem value="especie">En Especie</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="cantidad">Cantidad</Label>
-                <Input type="number" id="cantidad" name="cantidad" value={editingDonacion.cantidad} onChange={handleEditInputChange} />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="cantidad" className="text-right">Cantidad</Label>
+              <Input
+                id="cantidad"
+                type="number"
+                name="cantidad"
+                value={formData.cantidad}
+                onChange={handleInputChange}
+                className="col-span-3"
+              />
+            </div>
+
+            {formData.tipo === 'especie' && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="categoriaProducto" className="text-right">Categoría</Label>
+                <Input
+                  id="categoriaProducto"
+                  name="categoriaProducto"
+                  value={formData.categoriaProducto}
+                  onChange={handleInputChange}
+                  className="col-span-3"
+                  placeholder="Ej. Alimentos, Ropa, etc."
+                />
               </div>
-              {editingDonacion.tipo === 'especie' && (
-                <div className="grid gap-2">
-                  <Label htmlFor="categoriaProducto">Categoría del Producto</Label>
-                  <Input type="text" id="categoriaProducto" name="categoriaProducto" value={editingDonacion.categoriaProducto || ''} onChange={handleEditInputChange} />
+            )}
+
+            {formData.tipo === 'economica' && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="metodo" className="text-right">Método</Label>
+                <div className="col-span-3">
+                  <Select 
+                    value={formData.metodo} 
+                    onValueChange={handleMetodoChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Método de pago" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="efectivo">Efectivo</SelectItem>
+                      <SelectItem value="transferencia">Transferencia</SelectItem>
+                      <SelectItem value="cheque">Cheque</SelectItem>
+                      <SelectItem value="otro">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-              <div className="grid gap-2">
-                <Label htmlFor="metodo">Método de Pago</Label>
-                <Select name="metodo" value={editingDonacion.metodo} onValueChange={(value) => setEditingDonacion(prev => ({ ...prev, metodo: value }))}>
-                  <SelectTrigger className="w-[280px]">
-                    <SelectValue placeholder="Seleccione el método" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="efectivo">Efectivo</SelectItem>
-                    <SelectItem value="transferencia">Transferencia</SelectItem>
-                    <SelectItem value="cheque">Cheque</SelectItem>
-                    <SelectItem value="otro">Otro</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="estado">Estado</Label>
-                <Select name="estado" value={editingDonacion.estado} onValueChange={(value) => setEditingDonacion(prev => ({ ...prev, estado: value }))}>
-                  <SelectTrigger className="w-[280px]">
-                    <SelectValue placeholder="Seleccione el estado" />
+            )}
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="estado" className="text-right">Estado</Label>
+              <div className="col-span-3">
+                <Select 
+                  value={formData.estado} 
+                  onValueChange={handleEstadoChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Estado" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pendiente">Pendiente</SelectItem>
@@ -368,15 +369,31 @@ const Donaciones: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="descripcion">Descripción</Label>
-                <Input type="textarea" id="descripcion" name="descripcion" value={editingDonacion.descripcion} onChange={handleEditInputChange} />
-              </div>
-              <DialogFooter>
-                <Button type="submit">Guardar</Button>
-              </DialogFooter>
-            </form>
-          )}
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="descripcion" className="text-right">Descripción</Label>
+              <Input
+                id="descripcion"
+                name="descripcion"
+                value={formData.descripcion}
+                onChange={handleInputChange}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => {
+              setIsModalOpen(false);
+              resetForm();
+            }}>
+              Cancelar
+            </Button>
+            <Button type="submit" onClick={handleSubmit}>
+              {editingDonacion ? "Actualizar" : "Guardar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

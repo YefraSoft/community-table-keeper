@@ -102,7 +102,7 @@ const Empleados = () => {
         <h1 className="text-2xl font-bold">Empleados</h1>
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="primary">Agregar Empleado</Button>
+            <Button variant="default">Agregar Empleado</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
