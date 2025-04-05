@@ -1,7 +1,6 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Donador, Donacion, ArticuloInventario, Empleado, EstadisticasDashboard } from '@/types';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 interface AppContextType {
   donadores: Donador[];
@@ -10,22 +9,18 @@ interface AppContextType {
   empleados: Empleado[];
   estadisticas: EstadisticasDashboard;
   
-  // CRUD Donadores
   agregarDonador: (donador: Omit<Donador, 'id' | 'historialDonaciones' | 'fechaRegistro'>) => void;
   actualizarDonador: (donador: Donador) => void;
   eliminarDonador: (id: string) => void;
   
-  // CRUD Donaciones
   agregarDonacion: (donacion: Omit<Donacion, 'id'>) => void;
   actualizarDonacion: (donacion: Donacion) => void;
   eliminarDonacion: (id: string) => void;
   
-  // CRUD Inventario
   agregarArticuloInventario: (articulo: Omit<ArticuloInventario, 'id'>) => void;
   actualizarArticuloInventario: (articulo: ArticuloInventario) => void;
   eliminarArticuloInventario: (id: string) => void;
   
-  // CRUD Empleados
   agregarEmpleado: (empleado: Omit<Empleado, 'id'>) => void;
   actualizarEmpleado: (empleado: Empleado) => void;
   eliminarEmpleado: (id: string) => void;
@@ -47,7 +42,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [inventario, setInventario] = useState<ArticuloInventario[]>([]);
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   
-  // Cargar datos del localStorage al iniciar
   useEffect(() => {
     const storedDonadores = localStorage.getItem('donadores');
     const storedDonaciones = localStorage.getItem('donaciones');
@@ -60,7 +54,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (storedEmpleados) setEmpleados(JSON.parse(storedEmpleados));
   }, []);
   
-  // Guardar datos en localStorage cuando cambian
   useEffect(() => {
     localStorage.setItem('donadores', JSON.stringify(donadores));
   }, [donadores]);
@@ -77,7 +70,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('empleados', JSON.stringify(empleados));
   }, [empleados]);
   
-  // Calcular estadísticas para el dashboard
   const estadisticas: EstadisticasDashboard = {
     totalDonadores: donadores.length,
     totalDonaciones: donaciones.length,
@@ -88,7 +80,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     empleadosActivos: empleados.filter(e => e.estadoLaboral === 'activo').length
   };
   
-  // CRUD para Donadores
   const agregarDonador = (donador: Omit<Donador, 'id' | 'historialDonaciones' | 'fechaRegistro'>) => {
     const nuevoDonador: Donador = {
       ...donador,
@@ -110,7 +101,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     toast.success('Donador eliminado con éxito');
   };
   
-  // CRUD para Donaciones
   const agregarDonacion = (donacion: Omit<Donacion, 'id'>) => {
     const nuevaDonacion: Donacion = {
       ...donacion,
@@ -119,7 +109,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     setDonaciones([...donaciones, nuevaDonacion]);
     
-    // Si es una donación en especie, agregar al inventario
     if (donacion.tipo === 'especie' && donacion.categoriaProducto) {
       agregarArticuloInventario({
         nombre: donacion.categoriaProducto,
@@ -132,7 +121,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
     
-    // Actualizar el historial de donaciones del donador
     const donadorActualizado = donadores.find(d => d.id === donacion.donadorId);
     if (donadorActualizado) {
       donadorActualizado.historialDonaciones = [
@@ -148,7 +136,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const actualizarDonacion = (donacion: Donacion) => {
     setDonaciones(donaciones.map(d => d.id === donacion.id ? donacion : d));
     
-    // Actualizar el inventario si es necesario
     if (donacion.tipo === 'especie') {
       const articuloRelacionado = inventario.find(a => a.donacionId === donacion.id);
       if (articuloRelacionado) {
@@ -162,7 +149,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     
-    // Actualizar el historial de donaciones del donador
     const donadorActualizado = donadores.find(d => d.id === donacion.donadorId);
     if (donadorActualizado) {
       donadorActualizado.historialDonaciones = donadorActualizado.historialDonaciones.map(
@@ -178,7 +164,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const donacion = donaciones.find(d => d.id === id);
     
     if (donacion) {
-      // Eliminar del inventario si es necesario
       if (donacion.tipo === 'especie') {
         const articuloRelacionado = inventario.find(a => a.donacionId === id);
         if (articuloRelacionado) {
@@ -186,7 +171,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
       
-      // Actualizar el historial de donaciones del donador
       const donadorActualizado = donadores.find(d => d.id === donacion.donadorId);
       if (donadorActualizado) {
         donadorActualizado.historialDonaciones = donadorActualizado.historialDonaciones.filter(
@@ -200,7 +184,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     toast.success('Donación eliminada con éxito');
   };
   
-  // CRUD para Inventario
   const agregarArticuloInventario = (articulo: Omit<ArticuloInventario, 'id'>) => {
     const nuevoArticulo: ArticuloInventario = {
       ...articulo,
@@ -220,7 +203,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     toast.success('Artículo eliminado del inventario');
   };
   
-  // CRUD para Empleados
   const agregarEmpleado = (empleado: Omit<Empleado, 'id'>) => {
     const nuevoEmpleado: Empleado = {
       ...empleado,
